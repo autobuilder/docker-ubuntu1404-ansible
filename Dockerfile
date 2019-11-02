@@ -1,24 +1,31 @@
-FROM ubuntu:16.04
+FROM ubuntu:14.04
 LABEL maintainer="AutoBuilder24x7"
 
-ENV pip_packages "ansible pyopenssl"
+ENV pip_packages "ansible"
 
-# Install dependencies.
+# Install dependencies and upgrade Python.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       python-software-properties \
        software-properties-common \
-       python-setuptools \
-       wget rsyslog systemd systemd-cron sudo \
-    && apt-get clean \
-    && wget https://bootstrap.pypa.io/get-pip.py \
-    && python get-pip.py
+    && add-apt-repository ppa:jonathonf/python-2.7 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+       python2.7 \
+    && ln -s /usr/bin/python2.7 /usr/bin/python \
+    && rm -Rf /var/lib/apt/lists/* \
+    && rm -Rf /usr/share/doc && rm -Rf /usr/share/man \
+    && apt-get clean
 
 # Install Ansible via Pip.
-RUN pip install $pip_packages
+ADD https://bootstrap.pypa.io/get-pip.py .
+RUN /usr/bin/python2.7 get-pip.py \
+  && pip install $pip_packages
 
 # Install Ansible inventory file.
 RUN mkdir -p /etc/ansible
 RUN echo "[local]\nlocalhost ansible_connection=local" > /etc/ansible/hosts
 
-CMD ["/lib/systemd/systemd"]
+# Workaround for pleaserun tool that Logstash uses
+RUN rm -rf /sbin/initctl && ln -s /sbin/initctl.distrib /sbin/initctl
+
+CMD ["/sbin/init"]
